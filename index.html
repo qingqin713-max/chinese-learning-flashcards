@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中文学习 · Chinese Learning</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f0f13;--surface:#1a1a24;--card:#22223a;--card-hover:#2a2a48;
+    --accent:#6c63ff;--accent-glow:rgba(108,99,255,.35);
+    --green:#34d399;--red:#f87171;--yellow:#fbbf24;
+    --text:#e8e6f0;--text-dim:#9995b0;--text-muted:#6b6880;
+    --radius:16px;--radius-sm:10px;
+    --font-zh:'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;
+    --font-en:'Inter','Segoe UI',sans-serif;
+    --transition:0.35s cubic-bezier(.4,0,.2,1);
+  }
+  html{font-size:16px}
+  body{font-family:var(--font-en);background:var(--bg);color:var(--text);
+    min-height:100dvh;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;overflow:hidden;position:relative}
+
+  /* animated bg */
+  body::before{content:'';position:fixed;inset:0;
+    background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(108,99,255,.08),transparent),
+               radial-gradient(ellipse 50% 40% at 80% 100%,rgba(52,211,153,.06),transparent);
+    pointer-events:none;z-index:0}
+
+  /* ===== Screens ===== */
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:24px;
+    opacity:0;pointer-events:none;transform:translateY(30px) scale(.97);
+    transition:opacity .5s ease,transform .5s ease;z-index:1}
+  .screen.active{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+
+  /* ===== Level Select ===== */
+  .title{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;letter-spacing:-.02em;
+    background:linear-gradient(135deg,var(--accent),var(--green));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    margin-bottom:8px;text-align:center}
+  .subtitle{font-size:1.05rem;color:var(--text-dim);margin-bottom:40px;text-align:center}
+  .level-grid{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .level-btn{width:200px;padding:32px 20px;border:2px solid var(--card-hover);
+    background:var(--surface);border-radius:var(--radius);cursor:pointer;
+    transition:var(--transition);text-align:center;position:relative;overflow:hidden}
+  .level-btn:hover{border-color:var(--accent);transform:translateY(-4px);
+    box-shadow:0 8px 32px var(--accent-glow)}
+  .level-btn .emoji{font-size:2.4rem;margin-bottom:12px;display:block}
+  .level-btn .label{font-size:1.15rem;font-weight:700;color:var(--text);display:block}
+  .level-btn .desc{font-size:.82rem;color:var(--text-muted);margin-top:6px;display:block}
+
+  /* ===== Mode Select ===== */
+  .mode-grid{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+  .mode-btn{width:240px;padding:40px 24px;border:2px solid var(--card-hover);
+    background:var(--surface);border-radius:var(--radius);cursor:pointer;
+    transition:var(--transition);text-align:center}
+  .mode-btn:hover{border-color:var(--accent);transform:translateY(-4px);
+    box-shadow:0 8px 32px var(--accent-glow)}
+  .mode-btn .emoji{font-size:2.8rem;margin-bottom:14px;display:block}
+  .mode-btn .label{font-size:1.2rem;font-weight:700;color:var(--text);display:block}
+  .mode-btn .desc{font-size:.85rem;color:var(--text-muted);margin-top:8px;line-height:1.5;display:block}
+  .back-link{margin-top:32px;color:var(--text-muted);cursor:pointer;
+    font-size:.9rem;transition:color .2s}
+  .back-link:hover{color:var(--accent)}
+
+  /* ===== Card Area ===== */
+  .card-container{perspective:1000px;width:min(380px,90vw);height:260px;margin-bottom:28px;cursor:pointer}
+  .card-inner{position:relative;width:100%;height:100%;
+    transition:transform .6s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
+  .card-inner.flipped{transform:rotateY(180deg)}
+  .card-face{position:absolute;inset:0;backface-visibility:hidden;
+    border-radius:var(--radius);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:24px;
+    border:2px solid var(--card-hover);background:var(--surface)}
+  .card-back{transform:rotateY(180deg)}
+  .hanzi{font-family:var(--font-zh);font-size:clamp(3rem,8vw,5rem);
+    font-weight:900;line-height:1.2;color:var(--text)}
+  .pinyin{font-size:1.3rem;color:var(--accent);margin-top:8px;letter-spacing:.02em}
+  .english{font-size:1.2rem;color:var(--text-dim);margin-top:6px}
+
+  /* Beginner progressive card (no flip) */
+  .card-static{width:min(380px,90vw);min-height:260px;
+    border-radius:var(--radius);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:32px;
+    border:2px solid var(--card-hover);background:var(--surface);
+    cursor:pointer;margin-bottom:28px;transition:border-color .3s;
+    user-select:none}
+  .card-static:hover{border-color:var(--accent)}
+  .card-static .pinyin,.card-static .english{
+    transition:opacity .4s,transform .4s;opacity:0;transform:translateY(8px);max-height:0;overflow:hidden}
+  .card-static .pinyin.show,.card-static .english.show{
+    opacity:1;transform:translateY(0);max-height:60px;margin-top:10px}
+
+  /* ===== Buttons ===== */
+  .btn-row{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+  .btn{padding:14px 36px;border:none;border-radius:var(--radius-sm);
+    font-size:1rem;font-weight:700;cursor:pointer;transition:var(--transition);
+    letter-spacing:.02em;min-width:130px}
+  .btn:active{transform:scale(.96)}
+  .btn-red{background:var(--red);color:#1a1a24}
+  .btn-red:hover{box-shadow:0 4px 24px rgba(248,113,113,.4)}
+  .btn-green{background:var(--green);color:#1a1a24}
+  .btn-green:hover{box-shadow:0 4px 24px rgba(52,211,153,.4)}
+  .btn-yellow{background:var(--yellow);color:#1a1a24}
+  .btn-yellow:hover{box-shadow:0 4px 24px rgba(251,191,36,.4)}
+
+  /* ===== Progress ===== */
+  .progress-bar{width:min(380px,90vw);height:6px;background:var(--card);
+    border-radius:3px;margin-bottom:20px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));
+    border-radius:3px;transition:width .4s ease}
+
+  /* ===== Top bar ===== */
+  .top-bar{position:absolute;top:20px;left:24px;right:24px;display:flex;
+    justify-content:space-between;align-items:center;z-index:10}
+  .top-bar .info{font-size:.85rem;color:var(--text-muted)}
+  .top-bar .info strong{color:var(--accent);font-weight:700}
+
+  /* ===== Summary ===== */
+  .summary-box{background:var(--surface);border:2px solid var(--card-hover);
+    border-radius:var(--radius);padding:40px;text-align:center;max-width:440px}
+  .summary-box h2{font-size:1.8rem;margin-bottom:8px}
+  .summary-box .stat{font-size:3rem;font-weight:800;
+    background:linear-gradient(135deg,var(--accent),var(--green));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:16px 0}
+  .summary-box p{color:var(--text-dim);line-height:1.6;margin-bottom:24px}
+  .btn-outline{padding:12px 32px;border:2px solid var(--accent);
+    background:transparent;color:var(--accent);border-radius:var(--radius-sm);
+    font-size:1rem;font-weight:700;cursor:pointer;transition:var(--transition)}
+  .btn-outline:hover{background:var(--accent);color:#fff}
+
+  /* ===== Cycle notice ===== */
+  .cycle-notice{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.8);
+    background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);
+    padding:40px 48px;text-align:center;z-index:100;opacity:0;pointer-events:none;
+    transition:opacity .4s,transform .4s;box-shadow:0 12px 48px rgba(0,0,0,.5)}
+  .cycle-notice.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+  .cycle-notice h3{font-size:1.4rem;margin-bottom:8px}
+  .cycle-notice p{color:var(--text-dim);margin-bottom:20px}
+
+  /* mobile */
+  @media(max-width:600px){
+    .level-btn{width:160px;padding:24px 14px}
+    .mode-btn{width:100%;max-width:300px;padding:28px 20px}
+    .card-container,.card-static,.progress-bar{width:92vw}
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== SCREEN: Level Select ========== -->
+<div class="screen active" id="screen-level">
+  <h1 class="title">中文学习</h1>
+  <p class="subtitle">Choose your Chinese level to get started</p>
+  <div class="level-grid">
+    <div class="level-btn" onclick="selectLevel('Beginner')">
+      <span class="emoji">🌱</span>
+      <span class="label">Beginner</span>
+      <span class="desc">50 essential words</span>
+    </div>
+    <div class="level-btn" onclick="selectLevel('Intermediate')">
+      <span class="emoji">📚</span>
+      <span class="label">Intermediate</span>
+      <span class="desc">50 core words</span>
+    </div>
+    <div class="level-btn" onclick="selectLevel('Advanced')">
+      <span class="emoji">🏯</span>
+      <span class="label">Advanced</span>
+      <span class="desc">50 literary words</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== SCREEN: Mode Select ========== -->
+<div class="screen" id="screen-mode">
+  <h1 class="title" id="mode-title">Beginner</h1>
+  <p class="subtitle">Pick a study mode</p>
+  <div class="mode-grid">
+    <div class="mode-btn" onclick="startMode('memorize')">
+      <span class="emoji">🔄</span>
+      <span class="label">Memorize</span>
+      <span class="desc">Flip cards to reveal English.<br>Mark Forgot / Pass to adjust review.</span>
+    </div>
+    <div class="mode-btn" onclick="startMode('recognize')">
+      <span class="emoji">🧠</span>
+      <span class="label">Recognize</span>
+      <span class="desc">Tap to progressively reveal pinyin &amp; English.<br>Mark Hard / Easy to reinforce.</span>
+    </div>
+  </div>
+  <div class="back-link" onclick="goTo('screen-level')">← Change level</div>
+</div>
+
+<!-- ========== SCREEN: Memorize ========== -->
+<div class="screen" id="screen-memorize">
+  <div class="top-bar">
+    <div class="info"><span id="mem-counter">1 / 10</span></div>
+    <div class="info">Level: <strong id="mem-level">Beginner</strong></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="mem-progress" style="width:10%"></div></div>
+  <div class="card-container" onclick="flipCard()">
+    <div class="card-inner" id="mem-card">
+      <div class="card-face">
+        <div class="hanzi" id="mem-hanzi">你好</div>
+      </div>
+      <div class="card-face card-back">
+        <div class="hanzi" id="mem-hanzi2">你好</div>
+        <div class="pinyin" id="mem-pinyin">nǐ hǎo</div>
+        <div class="english" id="mem-english">hello</div>
+      </div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-red" onclick="memAnswer('forgot')">😣 Forgot</button>
+    <button class="btn btn-green" onclick="memAnswer('pass')">✅ Pass</button>
+  </div>
+  <div class="back-link" onclick="exitStudy()" style="margin-top:24px">← Back to modes</div>
+</div>
+
+<!-- ========== SCREEN: Recognize ========== -->
+<div class="screen" id="screen-recognize">
+  <div class="top-bar">
+    <div class="info"><span id="rec-counter">1 / 10</span></div>
+    <div class="info">Level: <strong id="rec-level">Beginner</strong></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="rec-progress" style="width:10%"></div></div>
+  <div class="card-static" id="rec-card" onclick="recTap()">
+    <div class="hanzi" id="rec-hanzi">你好</div>
+    <div class="pinyin" id="rec-pinyin">nǐ hǎo</div>
+    <div class="english" id="rec-english">hello</div>
+  </div>
+  <div class="btn-row" id="rec-buttons" style="opacity:0;pointer-events:none;transition:opacity .3s">
+    <button class="btn btn-yellow" onclick="recAnswer('hard')">💪 Hard</button>
+    <button class="btn btn-green" onclick="recAnswer('easy')">👌 Easy</button>
+  </div>
+  <div class="back-link" onclick="exitStudy()" style="margin-top:24px">← Back to modes</div>
+</div>
+
+<!-- ========== SCREEN: Summary ========== -->
+<div class="screen" id="screen-summary">
+  <div class="summary-box">
+    <h2>🎉 Cycle Complete!</h2>
+    <div class="stat" id="sum-score">8 / 10</div>
+    <p id="sum-detail">You remembered 8 words and need to review 2 more.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn-outline" onclick="nextCycle()">Continue Next Cycle →</button>
+      <button class="btn-outline" onclick="exitStudy()">Back to Modes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Cycle Notice Overlay ========== -->
+<div class="cycle-notice" id="cycle-notice">
+  <h3 id="cn-title">Cycle 2</h3>
+  <p id="cn-desc">10 words to review</p>
+  <button class="btn btn-green" onclick="dismissCycleNotice()" style="min-width:160px">Let's Go!</button>
+</div>
+
+<script>
+// ===================== VOCABULARY DATA =====================
+const VOCAB = {
+Beginner: [
+{hanzi:"你好",pinyin:"nǐ hǎo",english:"hello"},
+{hanzi:"谢谢",pinyin:"xiè xie",english:"thank you"},
+{hanzi:"再见",pinyin:"zài jiàn",english:"goodbye"},
+{hanzi:"是",pinyin:"shì",english:"to be / yes"},
+{hanzi:"不",pinyin:"bù",english:"no / not"},
+{hanzi:"我",pinyin:"wǒ",english:"I / me"},
+{hanzi:"你",pinyin:"nǐ",english:"you"},
+{hanzi:"他",pinyin:"tā",english:"he / him"},
+{hanzi:"她",pinyin:"tā",english:"she / her"},
+{hanzi:"们",pinyin:"men",english:"plural marker"},
+{hanzi:"好",pinyin:"hǎo",english:"good"},
+{hanzi:"大",pinyin:"dà",english:"big"},
+{hanzi:"小",pinyin:"xiǎo",english:"small"},
+{hanzi:"多",pinyin:"duō",english:"many / much"},
+{hanzi:"少",pinyin:"shǎo",english:"few / little"},
+{hanzi:"一",pinyin:"yī",english:"one"},
+{hanzi:"二",pinyin:"èr",english:"two"},
+{hanzi:"三",pinyin:"sān",english:"three"},
+{hanzi:"四",pinyin:"sì",english:"four"},
+{hanzi:"五",pinyin:"wǔ",english:"five"},
+{hanzi:"六",pinyin:"liù",english:"six"},
+{hanzi:"七",pinyin:"qī",english:"seven"},
+{hanzi:"八",pinyin:"bā",english:"eight"},
+{hanzi:"九",pinyin:"jiǔ",english:"nine"},
+{hanzi:"十",pinyin:"shí",english:"ten"},
+{hanzi:"人",pinyin:"rén",english:"person"},
+{hanzi:"家",pinyin:"jiā",english:"home / family"},
+{hanzi:"水",pinyin:"shuǐ",english:"water"},
+{hanzi:"吃",pinyin:"chī",english:"to eat"},
+{hanzi:"喝",pinyin:"hē",english:"to drink"},
+{hanzi:"看",pinyin:"kàn",english:"to look / to watch"},
+{hanzi:"听",pinyin:"tīng",english:"to listen"},
+{hanzi:"说",pinyin:"shuō",english:"to speak / to say"},
+{hanzi:"读",pinyin:"dú",english:"to read"},
+{hanzi:"写",pinyin:"xiě",english:"to write"},
+{hanzi:"去",pinyin:"qù",english:"to go"},
+{hanzi:"来",pinyin:"lái",english:"to come"},
+{hanzi:"爱",pinyin:"ài",english:"to love"},
+{hanzi:"想",pinyin:"xiǎng",english:"to think / to want"},
+{hanzi:"学",pinyin:"xué",english:"to study / to learn"},
+{hanzi:"书",pinyin:"shū",english:"book"},
+{hanzi:"猫",pinyin:"māo",english:"cat"},
+{hanzi:"狗",pinyin:"gǒu",english:"dog"},
+{hanzi:"鱼",pinyin:"yú",english:"fish"},
+{hanzi:"花",pinyin:"huā",english:"flower"},
+{hanzi:"天",pinyin:"tiān",english:"day / sky"},
+{hanzi:"月",pinyin:"yuè",english:"month / moon"},
+{hanzi:"年",pinyin:"nián",english:"year"},
+{hanzi:"今天",pinyin:"jīn tiān",english:"today"},
+{hanzi:"明天",pinyin:"míng tiān",english:"tomorrow"},
+],
+Intermediate: [
+{hanzi:"因为",pinyin:"yīn wèi",english:"because"},
+{hanzi:"所以",pinyin:"suǒ yǐ",english:"therefore"},
+{hanzi:"虽然",pinyin:"suī rán",english:"although"},
+{hanzi:"但是",pinyin:"dàn shì",english:"but / however"},
+{hanzi:"如果",pinyin:"rú guǒ",english:"if"},
+{hanzi:"已经",pinyin:"yǐ jīng",english:"already"},
+{hanzi:"可能",pinyin:"kě néng",english:"possibly / maybe"},
+{hanzi:"应该",pinyin:"yīng gāi",english:"should / ought to"},
+{hanzi:"必须",pinyin:"bì xū",english:"must / have to"},
+{hanzi:"需要",pinyin:"xū yào",english:"to need"},
+{hanzi:"重要",pinyin:"zhòng yào",english:"important"},
+{hanzi:"简单",pinyin:"jiǎn dān",english:"simple"},
+{hanzi:"复杂",pinyin:"fù zá",english:"complex"},
+{hanzi:"容易",pinyin:"róng yì",english:"easy"},
+{hanzi:"困难",pinyin:"kùn nán",english:"difficult"},
+{hanzi:"经济",pinyin:"jīng jì",english:"economy"},
+{hanzi:"社会",pinyin:"shè huì",english:"society"},
+{hanzi:"环境",pinyin:"huán jìng",english:"environment"},
+{hanzi:"发展",pinyin:"fā zhǎn",english:"to develop / development"},
+{hanzi:"教育",pinyin:"jiào yù",english:"education"},
+{hanzi:"文化",pinyin:"wén huà",english:"culture"},
+{hanzi:"历史",pinyin:"lì shǐ",english:"history"},
+{hanzi:"科学",pinyin:"kē xué",english:"science"},
+{hanzi:"技术",pinyin:"jì shù",english:"technology"},
+{hanzi:"健康",pinyin:"jiàn kāng",english:"health / healthy"},
+{hanzi:"旅行",pinyin:"lǚ xíng",english:"to travel / travel"},
+{hanzi:"经验",pinyin:"jīng yàn",english:"experience"},
+{hanzi:"机会",pinyin:"jī huì",english:"opportunity"},
+{hanzi:"决定",pinyin:"jué dìng",english:"to decide / decision"},
+{hanzi:"影响",pinyin:"yǐng xiǎng",english:"to influence / influence"},
+{hanzi:"表示",pinyin:"biǎo shì",english:"to express / to indicate"},
+{hanzi:"认为",pinyin:"rèn wéi",english:"to think / to believe"},
+{hanzi:"了解",pinyin:"liǎo jiě",english:"to understand"},
+{hanzi:"解决",pinyin:"jiě jué",english:"to solve / to resolve"},
+{hanzi:"提高",pinyin:"tí gāo",english:"to improve / to raise"},
+{hanzi:"参加",pinyin:"cān jiā",english:"to participate"},
+{hanzi:"准备",pinyin:"zhǔn bèi",english:"to prepare"},
+{hanzi:"注意",pinyin:"zhù yì",english:"to pay attention"},
+{hanzi:"关系",pinyin:"guān xì",english:"relationship"},
+{hanzi:"国际",pinyin:"guó jì",english:"international"},
+{hanzi:"政府",pinyin:"zhèng fǔ",english:"government"},
+{hanzi:"安全",pinyin:"ān quán",english:"safe / safety"},
+{hanzi:"成功",pinyin:"chéng gōng",english:"success / successful"},
+{hanzi:"失败",pinyin:"shī bài",english:"failure / to fail"},
+{hanzi:"态度",pinyin:"tài dù",english:"attitude"},
+{hanzi:"责任",pinyin:"zé rèn",english:"responsibility"},
+{hanzi:"尊重",pinyin:"zūn zhòng",english:"to respect / respect"},
+{hanzi:"丰富",pinyin:"fēng fù",english:"rich / abundant"},
+{hanzi:"幸福",pinyin:"xìng fú",english:"happiness / happy"},
+{hanzi:"勇敢",pinyin:"yǒng gǎn",english:"brave / courageous"},
+],
+Advanced: [
+{hanzi:"矛盾",pinyin:"máo dùn",english:"contradiction"},
+{hanzi:"哲学",pinyin:"zhé xué",english:"philosophy"},
+{hanzi:"抽象",pinyin:"chōu xiàng",english:"abstract"},
+{hanzi:"意识",pinyin:"yì shí",english:"consciousness"},
+{hanzi:"本质",pinyin:"běn zhì",english:"essence / nature"},
+{hanzi:"现象",pinyin:"xiàn xiàng",english:"phenomenon"},
+{hanzi:"规律",pinyin:"guī lǜ",english:"law / pattern"},
+{hanzi:"逻辑",pinyin:"luó jí",english:"logic"},
+{hanzi:"辩证",pinyin:"biàn zhèng",english:"dialectical"},
+{hanzi:"范畴",pinyin:"fàn chóu",english:"category / domain"},
+{hanzi:"潜移默化",pinyin:"qián yí mò huà",english:"to subtly influence"},
+{hanzi:"循序渐进",pinyin:"xún xù jiàn jìn",english:"step by step"},
+{hanzi:"融会贯通",pinyin:"róng huì guàn tōng",english:"to master thoroughly"},
+{hanzi:"举一反三",pinyin:"jǔ yī fǎn sān",english:"to infer from one example"},
+{hanzi:"深思熟虑",pinyin:"shēn sī shú lǜ",english:"to deliberate carefully"},
+{hanzi:"奥妙",pinyin:"ào miào",english:"profound / subtle mystery"},
+{hanzi:"蕴含",pinyin:"yùn hán",english:"to contain / to embody"},
+{hanzi:"彰显",pinyin:"zhāng xiǎn",english:"to manifest / to highlight"},
+{hanzi:"凝聚",pinyin:"níng jù",english:"to condense / to coalesce"},
+{hanzi:"涵养",pinyin:"hán yǎng",english:"self-cultivation / restraint"},
+{hanzi:"博大精深",pinyin:"bó dà jīng shēn",english:"vast and profound"},
+{hanzi:"源远流长",pinyin:"yuán yuǎn liú cháng",english:"long-standing history"},
+{hanzi:"兼容并蓄",pinyin:"jiān róng bìng xù",english:"inclusive and tolerant"},
+{hanzi:"推陈出新",pinyin:"tuī chén chū xīn",english:"innovate from tradition"},
+{hanzi:"承前启后",pinyin:"chéng qián qǐ hòu",english:"link past and future"},
+{hanzi:"韵味",pinyin:"yùn wèi",english:"charm / lasting appeal"},
+{hanzi:"底蕴",pinyin:"dǐ yùn",english:"underlying strength / heritage"},
+{hanzi:"内涵",pinyin:"nèi hán",english:"connotation / inner quality"},
+{hanzi:"格局",pinyin:"gé jú",english:"pattern / overall situation"},
+{hanzi:"境界",pinyin:"jìng jiè",english:"realm / state of mind"},
+{hanzi:"沉淀",pinyin:"chén diàn",english:"to settle / to accumulate"},
+{hanzi:"淬炼",pinyin:"cuì liàn",english:"to temper / to refine"},
+{hanzi:"磨砺",pinyin:"mó lì",english:"to hone / to sharpen"},
+{hanzi:"笃行",pinyin:"dǔ xíng",english:"to practice earnestly"},
+{hanzi:"慎独",pinyin:"shèn dú",english:"self-discipline in solitude"},
+{hanzi:"自省",pinyin:"zì xǐng",english:"self-reflection"},
+{hanzi:"顿悟",pinyin:"dùn wù",english:"sudden enlightenment"},
+{hanzi:"共鸣",pinyin:"gòng míng",english:"resonance / empathy"},
+{hanzi:"隽永",pinyin:"juàn yǒng",english:"meaningful and lasting"},
+{hanzi:"恣意",pinyin:"zì yì",english:"unrestrained / willful"},
+{hanzi:"斟酌",pinyin:"zhēn zhuó",english:"to deliberate / to weigh"},
+{hanzi:"权衡",pinyin:"quán héng",english:"to weigh pros and cons"},
+{hanzi:"洞察",pinyin:"dòng chá",english:"insight / to perceive"},
+{hanzi:"审视",pinyin:"shěn shì",english:"to examine / to scrutinize"},
+{hanzi:"透彻",pinyin:"tòu chè",english:"thorough / penetrating"},
+{hanzi:"精辟",pinyin:"jīng pì",english:"incisive / brilliant"},
+{hanzi:"鞭辟入里",pinyin:"biān pì rù lǐ",english:"penetrating / hitting the mark"},
+{hanzi:"入木三分",pinyin:"rù mù sān fēn",english:"vivid and incisive"},
+{hanzi:"醍醐灌顶",pinyin:"tí hú guàn dǐng",english:"sudden clarity / epiphany"},
+{hanzi:"高屋建瓴",pinyin:"gāo wū jiàn líng",english:"commanding view / strategic"},
+]
+};
+
+const CYCLE_SIZE = 10;
+
+// ===================== STATE =====================
+let currentLevel = '';
+let currentMode = '';
+let pool = [];           // full word pool for current level
+let queue = [];          // current cycle queue
+let hardWords = new Set();  // indices in pool that are "hard" (recognize) or "forgot" (memorize)
+let forgotCount = 0;     // per-word forgot counter for spaced repetition
+let wordForgotMap = {};  // hanzi -> forgot count
+let cycleIndex = 0;      // position in current cycle
+let cycleNum = 1;
+let totalRight = 0;
+let totalWrong = 0;
+
+// recognize tap state
+let recTapState = 0;  // 0=show hanzi, 1=show pinyin, 2=show english
+
+// ===================== NAVIGATION =====================
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+function selectLevel(level) {
+  currentLevel = level;
+  document.getElementById('mode-title').textContent = level;
+  goTo('screen-mode');
+}
+
+function exitStudy() {
+  goTo('screen-mode');
+}
+
+// ===================== SHUFFLE =====================
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ===================== BUILD CYCLE =====================
+function buildCycle() {
+  // Priority: hard/forgot words first, then new words from pool
+  let hardList = [];
+  let normalList = [];
+  pool.forEach((w, i) => {
+    if (hardWords.has(i)) hardList.push(i);
+    else normalList.push(i);
+  });
+  shuffle(hardList);
+  shuffle(normalList);
+
+  queue = [];
+  // fill with hard words first
+  for (const i of hardList) { if (queue.length >= CYCLE_SIZE) break; queue.push(i); }
+  // then normal
+  for (const i of normalList) { if (queue.length >= CYCLE_SIZE) break; queue.push(i); }
+
+  shuffle(queue);
+  cycleIndex = 0;
+}
+
+// ===================== START MODE =====================
+function startMode(mode) {
+  currentMode = mode;
+  pool = [...VOCAB[currentLevel]];
+  hardWords = new Set();
+  wordForgotMap = {};
+  cycleNum = 1;
+  totalRight = 0;
+  totalWrong = 0;
+
+  buildCycle();
+
+  if (mode === 'memorize') {
+    document.getElementById('mem-level').textContent = currentLevel;
+    showMemCard();
+    goTo('screen-memorize');
+  } else {
+    document.getElementById('rec-level').textContent = currentLevel;
+    showRecCard();
+    goTo('screen-recognize');
+  }
+}
+
+// ===================== MEMORIZE MODE =====================
+function showMemCard() {
+  const w = pool[queue[cycleIndex]];
+  document.getElementById('mem-hanzi').textContent = w.hanzi;
+  document.getElementById('mem-hanzi2').textContent = w.hanzi;
+  document.getElementById('mem-pinyin').textContent = w.pinyin;
+  document.getElementById('mem-english').textContent = w.english;
+  document.getElementById('mem-card').classList.remove('flipped');
+  updateMemProgress();
+}
+
+function updateMemProgress() {
+  const pct = ((cycleIndex + 1) / queue.length) * 100;
+  document.getElementById('mem-progress').style.width = pct + '%';
+  document.getElementById('mem-counter').textContent = (cycleIndex + 1) + ' / ' + queue.length;
+}
+
+function flipCard() {
+  document.getElementById('mem-card').classList.toggle('flipped');
+}
+
+function memAnswer(type) {
+  const idx = queue[cycleIndex];
+  const w = pool[idx];
+  if (type === 'forgot') {
+    hardWords.add(idx);
+    wordForgotMap[w.hanzi] = (wordForgotMap[w.hanzi] || 0) + 1;
+    totalWrong++;
+  } else {
+    hardWords.delete(idx);
+    totalRight++;
+  }
+  advanceCycle('memorize');
+}
+
+// ===================== RECOGNIZE MODE =====================
+function showRecCard() {
+  const w = pool[queue[cycleIndex]];
+  document.getElementById('rec-hanzi').textContent = w.hanzi;
+  document.getElementById('rec-pinyin').textContent = w.pinyin;
+  document.getElementById('rec-english').textContent = w.english;
+  document.getElementById('rec-pinyin').classList.remove('show');
+  document.getElementById('rec-english').classList.remove('show');
+  document.getElementById('rec-buttons').style.opacity = '0';
+  document.getElementById('rec-buttons').style.pointerEvents = 'none';
+  recTapState = 0;
+  updateRecProgress();
+}
+
+function updateRecProgress() {
+  const pct = ((cycleIndex + 1) / queue.length) * 100;
+  document.getElementById('rec-progress').style.width = pct + '%';
+  document.getElementById('rec-counter').textContent = (cycleIndex + 1) + ' / ' + queue.length;
+}
+
+function recTap() {
+  if (recTapState === 0) {
+    document.getElementById('rec-pinyin').classList.add('show');
+    recTapState = 1;
+  } else if (recTapState === 1) {
+    document.getElementById('rec-english').classList.add('show');
+    document.getElementById('rec-buttons').style.opacity = '1';
+    document.getElementById('rec-buttons').style.pointerEvents = 'auto';
+    recTapState = 2;
+  }
+}
+
+function recAnswer(type) {
+  const idx = queue[cycleIndex];
+  if (type === 'hard') {
+    hardWords.add(idx);
+    totalWrong++;
+  } else {
+    hardWords.delete(idx);
+    totalRight++;
+  }
+  advanceCycle('recognize');
+}
+
+// ===================== ADVANCE / CYCLE =====================
+function advanceCycle(mode) {
+  cycleIndex++;
+  if (cycleIndex >= queue.length) {
+    showSummary();
+    return;
+  }
+  if (mode === 'memorize') showMemCard();
+  else showRecCard();
+}
+
+function showSummary() {
+  const right = totalRight;
+  const wrong = totalWrong;
+  document.getElementById('sum-score').textContent = right + ' ✓  /  ' + wrong + ' ✗';
+  const hardCount = hardWords.size;
+  if (hardCount === 0) {
+    document.getElementById('sum-detail').textContent = 'Perfect! You mastered all words in this session. 🎉';
+  } else {
+    document.getElementById('sum-detail').textContent =
+      hardCount + ' word' + (hardCount > 1 ? 's' : '') + ' marked for extra review in the next cycle.';
+  }
+  goTo('screen-summary');
+}
+
+function nextCycle() {
+  cycleNum++;
+  buildCycle();
+  if (queue.length === 0) {
+    document.getElementById('sum-detail').textContent = 'No more words to review! All done! 🏆';
+    return;
+  }
+  // show cycle notice
+  document.getElementById('cn-title').textContent = 'Cycle ' + cycleNum;
+  document.getElementById('cn-desc').textContent = queue.length + ' words to review';
+  document.getElementById('cycle-notice').classList.add('show');
+}
+
+function dismissCycleNotice() {
+  document.getElementById('cycle-notice').classList.remove('show');
+  if (currentMode === 'memorize') {
+    showMemCard();
+    goTo('screen-memorize');
+  } else {
+    showRecCard();
+    goTo('screen-recognize');
+  }
+}
+</script>
+</body>
+</html>
